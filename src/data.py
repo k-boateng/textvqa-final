@@ -71,14 +71,32 @@ def extract_ocr_tokens(example):
     return []
 
 
-def get_image(example):
+def get_image(example, max_side=1024):
     """
-    Extract image from example.
+    Extract image from example and resize very large images.
+
+    Large raw TextVQA images can create too many visual tokens for VLM inference.
+    Resizing keeps evaluation stable while preserving the visible text reasonably well.
     """
     image = example.get("image", None)
 
     if isinstance(image, Image.Image):
-        return image.convert("RGB")
+        image = image.convert("RGB")
+
+        width, height = image.size
+        largest_side = max(width, height)
+
+        if largest_side > max_side:
+            scale = max_side / largest_side
+            new_width = int(width * scale)
+            new_height = int(height * scale)
+
+            image = image.resize(
+                (new_width, new_height),
+                resample=Image.BICUBIC,
+            )
+
+        return image
 
     return image
 
