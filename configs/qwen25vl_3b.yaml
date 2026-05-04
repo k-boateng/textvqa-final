@@ -1,0 +1,20 @@
+model:
+  name: "Qwen/Qwen2.5-VL-3B-Instruct"
+  max_new_tokens: 32
+  temperature: 0.0
+  do_sample: false
+
+data:
+  dataset_name: "lmms-lab/textvqa"
+  val_size: 2000
+  seed: 42
+
+paths:
+  predictions_dir: "outputs/predictions"
+  metrics_dir: "outputs/metrics"
+  plots_dir: "outputs/plots"
+  examples_dir: "outputs/examples"
+  tables_dir: "outputs/tables"
+
+experiment:
+  device: "cuda"
