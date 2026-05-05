@@ -1,0 +1,12 @@
+{
+  "accuracy": 0.8,
+  "token_f1": 0.8451026776536867,
+  "rouge_l": 0.8663376209537016,
+  "bleu": 0.8412505164521642,
+  "n": 2000,
+  "setting": "prompt_constrained_no_ocr",
+  "prompt_type": "constrained",
+  "use_ocr": false,
+  "n_total_including_skipped": 2000,
+  "n_skipped": 0
+}

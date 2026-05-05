@@ -1,0 +1,12 @@
+{
+  "accuracy": 0.792,
+  "token_f1": 0.8342321414672862,
+  "rouge_l": 0.853527578538233,
+  "bleu": 0.8304019442929487,
+  "n": 2000,
+  "setting": "prompt_ocr_aware_with_ocr",
+  "prompt_type": "ocr_aware",
+  "use_ocr": true,
+  "n_total_including_skipped": 2000,
+  "n_skipped": 0
+}

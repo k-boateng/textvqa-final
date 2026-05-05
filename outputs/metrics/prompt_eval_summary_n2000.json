@@ -1,0 +1,62 @@
+[
+  {
+    "accuracy": 0.722,
+    "token_f1": 0.7935786560228635,
+    "rouge_l": 0.8785646408493472,
+    "bleu": 0.8128443445288877,
+    "n": 2000,
+    "setting": "prompt_naive_no_ocr",
+    "prompt_type": "naive",
+    "use_ocr": false,
+    "n_total_including_skipped": 2000,
+    "n_skipped": 0
+  },
+  {
+    "accuracy": 0.722,
+    "token_f1": 0.7935786560228635,
+    "rouge_l": 0.8785646408493472,
+    "bleu": 0.8128443445288877,
+    "n": 2000,
+    "setting": "prompt_naive_with_ocr",
+    "prompt_type": "naive",
+    "use_ocr": true,
+    "n_total_including_skipped": 2000,
+    "n_skipped": 0
+  },
+  {
+    "accuracy": 0.792,
+    "token_f1": 0.8342321414672862,
+    "rouge_l": 0.853527578538233,
+    "bleu": 0.8304019442929487,
+    "n": 2000,
+    "setting": "prompt_ocr_aware_with_ocr",
+    "prompt_type": "ocr_aware",
+    "use_ocr": true,
+    "n_total_including_skipped": 2000,
+    "n_skipped": 0
+  },
+  {
+    "accuracy": 0.809,
+    "token_f1": 0.841411843548609,
+    "rouge_l": 0.8586153573550639,
+    "bleu": 0.8386131672659409,
+    "n": 2000,
+    "setting": "prompt_constrained_with_ocr",
+    "prompt_type": "constrained",
+    "use_ocr": true,
+    "n_total_including_skipped": 2000,
+    "n_skipped": 0
+  },
+  {
+    "accuracy": 0.8,
+    "token_f1": 0.8451026776536867,
+    "rouge_l": 0.8663376209537016,
+    "bleu": 0.8412505164521642,
+    "n": 2000,
+    "setting": "prompt_constrained_no_ocr",
+    "prompt_type": "constrained",
+    "use_ocr": false,
+    "n_total_including_skipped": 2000,
+    "n_skipped": 0
+  }
+]
