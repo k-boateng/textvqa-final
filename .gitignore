@@ -1,1 +1,13 @@
 src/__pycache__
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+outputs/predictions/
+outputs/lora/
+outputs/lora_subsets/
+outputs/examples/
+outputs/plots/*.png
+
+.cache/
+.env
