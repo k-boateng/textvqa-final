@@ -9,7 +9,6 @@ class BLIP2Model:
 
     def __init__(self, model_name="Salesforce/blip2-opt-2.7b", device="cuda"):
         self.model_name = model_name
-        self.device = device
 
         print("Requested device:", device)
         print("CUDA available:", torch.cuda.is_available())
@@ -31,7 +30,8 @@ class BLIP2Model:
 
         self.model.eval()
 
-        print("First parameter device:", next(self.model.parameters()).device)
+        self.device = next(self.model.parameters()).device
+        print("First parameter device:", self.device)
 
     @torch.no_grad()
     def generate_answer(
@@ -42,72 +42,54 @@ class BLIP2Model:
         temperature=0.0,
         do_sample=False,
     ):
+        # BLIP-2 behaves better when the prompt explicitly ends with Answer:
+        clean_prompt = prompt.strip()
+
+        if "Answer:" not in clean_prompt:
+            clean_prompt = clean_prompt + "\nAnswer:"
+
         inputs = self.processor(
             images=image,
-            text=prompt,
+            text=clean_prompt,
             return_tensors="pt",
         )
 
-        # With device_map="auto", put inputs on the first model parameter device.
-        model_device = next(self.model.parameters()).device
         inputs = {
-            key: value.to(model_device)
+            key: value.to(self.device)
             for key, value in inputs.items()
         }
 
-        generate_kwargs = {
-            "max_new_tokens": max_new_tokens,
-            "do_sample": do_sample,
-            "num_beams": 1,
-        }
-
-        # Only pass temperature if sampling is actually enabled.
-        if do_sample:
-            generate_kwargs["temperature"] = temperature
-
         generated_ids = self.model.generate(
             **inputs,
-            **generate_kwargs,
+            max_new_tokens=max_new_tokens,
+            min_new_tokens=1,
+            do_sample=do_sample,
+            temperature=temperature if do_sample else None,
+            pad_token_id=self.processor.tokenizer.eos_token_id,
         )
 
-        input_ids = inputs.get("input_ids", None)
 
-        # BLIP-2 OPT sometimes returns prompt + generated answer.
-        # Only slice off the prompt if the generated sequence actually starts with input_ids.
-        if input_ids is not None:
-            input_len = input_ids.shape[1]
-
-            if (
-                generated_ids.shape[1] > input_len
-                and torch.equal(generated_ids[:, :input_len], input_ids)
-            ):
-                answer_ids = generated_ids[:, input_len:]
-            else:
-                answer_ids = generated_ids
-        else:
-            answer_ids = generated_ids
-
-        output_text = self.processor.tokenizer.batch_decode(
-            answer_ids,
+        decoded = self.processor.tokenizer.batch_decode(
+            generated_ids,
             skip_special_tokens=True,
         )[0].strip()
 
-        # Safety cleanup
-        if output_text.startswith(prompt):
-            output_text = output_text[len(prompt):].strip()
+        output_text = decoded.strip()
 
-        # Extra cleanup for common prompt leakage cases.
-        if "Question:" in output_text:
-            output_text = output_text.split("Question:")[-1].strip()
+        # Remove exact prompt echo if present.
+        if output_text.startswith(clean_prompt):
+            output_text = output_text[len(clean_prompt):].strip()
 
+        # Remove old prompt form too, just in case.
+        old_prompt = prompt.strip()
+        if output_text.startswith(old_prompt):
+            output_text = output_text[len(old_prompt):].strip()
+
+        # If model includes "Answer:", keep only what follows it.
         if "Answer:" in output_text:
             output_text = output_text.split("Answer:")[-1].strip()
 
-        # If the model only returned the prompt/question and no answer, do not save the prompt.
-        if output_text.strip() == prompt.strip():
-            output_text = ""
-
-        # TextVQA answers should be short.
+        # Keep only first line for TextVQA.
         output_text = output_text.split("\n")[0].strip()
 
         return output_text
