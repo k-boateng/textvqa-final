@@ -28,6 +28,8 @@ class Qwen25VLModel:
             model_name,
             torch_dtype=dtype,
             device_map="auto",
+            offload_folder="outputs/offload",
+            offload_state_dict=True,
         )
 
         if adapter_path is not None:
@@ -37,6 +39,7 @@ class Qwen25VLModel:
             self.model = PeftModel.from_pretrained(
                 self.model,
                 adapter_path,
+                offload_dir="outputs/offload",
             )
 
         self.processor = AutoProcessor.from_pretrained(model_name)

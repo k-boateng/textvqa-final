@@ -1,0 +1,6 @@
+error_type,count,percentage
+ocr_error,44,44.0
+reasoning_error,29,28.999999999999996
+normalization_issue,18,18.0
+ambiguous,7,7.000000000000001
+hallucination,2,2.0

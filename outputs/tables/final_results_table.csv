@@ -1,0 +1,9 @@
+Method,Train Size,OCR,Prompt,Accuracy,Token F1,ROUGE-L,BLEU,N
+Zero-shot naive,0,No,naive,0.722,0.7936,0.8786,0.8128,2000
+Zero-shot naive + OCR,0,Yes,naive,0.722,0.7936,0.8786,0.8128,2000
+OCR-aware prompt,0,Yes,ocr_aware,0.792,0.8342,0.8535,0.8304,2000
+Constrained prompt,0,No,constrained,0.8,0.8451,0.8663,0.8413,2000
+Constrained prompt + OCR,0,Yes,constrained,0.809,0.8414,0.8586,0.8386,2000
+LoRA,1000,Yes,constrained,0.8385,0.8681,0.8816,0.8684,2000
+LoRA,5000,Yes,constrained,0.865,0.8883,0.9022,0.8899,2000
+LoRA,10000,Yes,constrained,0.8715,0.893,0.9009,0.894,2000
