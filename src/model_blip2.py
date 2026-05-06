@@ -48,23 +48,42 @@ class BLIP2Model:
             return_tensors="pt",
         )
 
+        # With device_map="auto", put inputs on the first model parameter device.
+        model_device = next(self.model.parameters()).device
         inputs = {
-            key: value.to(self.model.device)
+            key: value.to(model_device)
             for key, value in inputs.items()
         }
 
+        generate_kwargs = {
+            "max_new_tokens": max_new_tokens,
+            "do_sample": do_sample,
+            "num_beams": 1,
+        }
+
+        # Only pass temperature if sampling is actually enabled.
+        if do_sample:
+            generate_kwargs["temperature"] = temperature
+
         generated_ids = self.model.generate(
             **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            do_sample=do_sample,
+            **generate_kwargs,
         )
 
-        # BLIP-2 with OPT can return prompt tokens + answer tokens.
-        # We only want the newly generated answer tokens.
-        if "input_ids" in inputs:
-            input_len = inputs["input_ids"].shape[1]
-            answer_ids = generated_ids[:, input_len:]
+        input_ids = inputs.get("input_ids", None)
+
+        # BLIP-2 OPT sometimes returns prompt + generated answer.
+        # Only slice off the prompt if the generated sequence actually starts with input_ids.
+        if input_ids is not None:
+            input_len = input_ids.shape[1]
+
+            if (
+                generated_ids.shape[1] > input_len
+                and torch.equal(generated_ids[:, :input_len], input_ids)
+            ):
+                answer_ids = generated_ids[:, input_len:]
+            else:
+                answer_ids = generated_ids
         else:
             answer_ids = generated_ids
 
@@ -73,13 +92,22 @@ class BLIP2Model:
             skip_special_tokens=True,
         )[0].strip()
 
+        # Safety cleanup
         if output_text.startswith(prompt):
             output_text = output_text[len(prompt):].strip()
+
+        # Extra cleanup for common prompt leakage cases.
+        if "Question:" in output_text:
+            output_text = output_text.split("Question:")[-1].strip()
 
         if "Answer:" in output_text:
             output_text = output_text.split("Answer:")[-1].strip()
 
-        # TextVQA answers should be short; keep first generated line.
+        # If the model only returned the prompt/question and no answer, do not save the prompt.
+        if output_text.strip() == prompt.strip():
+            output_text = ""
+
+        # TextVQA answers should be short.
         output_text = output_text.split("\n")[0].strip()
 
         return output_text
