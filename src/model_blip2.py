@@ -60,9 +60,26 @@ class BLIP2Model:
             do_sample=do_sample,
         )
 
-        output_text = self.processor.batch_decode(
-            generated_ids,
-            skip_special_tokens=True,
-        )[0]
+        # BLIP-2 with OPT can return prompt tokens + answer tokens.
+        # We only want the newly generated answer tokens.
+        if "input_ids" in inputs:
+            input_len = inputs["input_ids"].shape[1]
+            answer_ids = generated_ids[:, input_len:]
+        else:
+            answer_ids = generated_ids
 
-        return output_text.strip()
+        output_text = self.processor.tokenizer.batch_decode(
+            answer_ids,
+            skip_special_tokens=True,
+        )[0].strip()
+
+        if output_text.startswith(prompt):
+            output_text = output_text[len(prompt):].strip()
+
+        if "Answer:" in output_text:
+            output_text = output_text.split("Answer:")[-1].strip()
+
+        # TextVQA answers should be short; keep first generated line.
+        output_text = output_text.split("\n")[0].strip()
+
+        return output_text
