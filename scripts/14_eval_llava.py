@@ -21,10 +21,10 @@ def parse_args():
     )
     parser.add_argument("--use_ocr", action="store_true")
     parser.add_argument(
-        "--model_name",
-        type=str,
-        default="xtuner/llava-phi-3-mini-hf",
-    )
+    "--model_name",
+    type=str,
+    default="llava-hf/llava-1.5-7b-hf",
+)
     parser.add_argument("--save_every", type=int, default=25)
     parser.add_argument("--limit", type=int, default=None,
                         help="If set, only run this many examples (for smoke tests).")

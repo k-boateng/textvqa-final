@@ -5,13 +5,13 @@ from transformers import AutoProcessor, LlavaForConditionalGeneration
 
 class LLaVAModel:
     """
-    Thin wrapper around LLaVA-Phi-3-mini for TextVQA inference.
+    Thin wrapper around LLaVA-1.5-7B for TextVQA inference.
     Mirrors the Qwen25VLModel interface so the same run_inference() works.
 
-    Default model: xtuner/llava-phi-3-mini-hf
+    Default model: llava-hf/llava-1.5-7b-hf
     """
 
-    def __init__(self, model_name="xtuner/llava-phi-3-mini-hf", device="cuda", adapter_path=None):
+    def __init__(self, model_name="llava-hf/llava-1.5-7b-hf", device="cuda", adapter_path=None):
         self.model_name = model_name
         self.device = device
         self.adapter_path = adapter_path
@@ -52,21 +52,10 @@ class LLaVAModel:
 
     def _build_chat_prompt(self, question_prompt):
         """
-        LLaVA-Phi-3-mini uses Phi-3's chat format with explicit special tokens.
-        The processor doesn't ship a chat_template attribute, so we build it manually.
-
-        Format:
-            <|user|>
-            <image>
-            {question}<|end|>
-            <|assistant|>
+        LLaVA-1.5 uses a Vicuna-style chat format with a USER/ASSISTANT structure
+        and an explicit <image> token.
         """
-        return (
-            f"<|user|>\n"
-            f"<image>\n"
-            f"{question_prompt}<|end|>\n"
-            f"<|assistant|>\n"
-        )
+        return f"USER: <image>\n{question_prompt}\nASSISTANT:"
 
     @torch.no_grad()
     def generate_answer(
@@ -109,10 +98,7 @@ class LLaVAModel:
 
         # Light cleanup
         output_text = output_text.strip()
-        # Strip leftover end tokens that sometimes survive special-token stripping
-        for tok in ["<|end|>", "<|endoftext|>", "<|assistant|>"]:
-            output_text = output_text.replace(tok, "").strip()
-        # Take first line only
+        # Take first line only (model sometimes elaborates)
         output_text = output_text.split("\n")[0].strip()
         # Strip trailing punctuation/quotes
         output_text = output_text.strip(' ."\'')
