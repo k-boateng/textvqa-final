@@ -9,6 +9,7 @@ class BLIP2Model:
 
     def __init__(self, model_name="Salesforce/blip2-opt-2.7b", device="cuda"):
         self.model_name = model_name
+        self.device = device
 
         print("Requested device:", device)
         print("CUDA available:", torch.cuda.is_available())
@@ -30,8 +31,37 @@ class BLIP2Model:
 
         self.model.eval()
 
-        self.device = next(self.model.parameters()).device
-        print("First parameter device:", self.device)
+        self.actual_device = next(self.model.parameters()).device
+        print("First parameter device:", self.actual_device)
+
+    def _prepare_prompt(self, prompt):
+        prompt = prompt.strip()
+
+        if "Answer:" not in prompt:
+            prompt = prompt + "\nAnswer:"
+
+        return prompt
+
+    def _clean_output(self, text, prompt):
+        text = text.strip()
+
+        # Remove full prompt if the decoder echoed it.
+        if text.startswith(prompt):
+            text = text[len(prompt):].strip()
+
+        # Remove everything before final Answer: if present.
+        if "Answer:" in text:
+            text = text.split("Answer:")[-1].strip()
+
+        # Keep only first line.
+        text = text.split("\n")[0].strip()
+
+        # Remove common junk prefixes.
+        for prefix in ["A:", "answer:", "Answer:"]:
+            if text.startswith(prefix):
+                text = text[len(prefix):].strip()
+
+        return text
 
     @torch.no_grad()
     def generate_answer(
@@ -42,20 +72,16 @@ class BLIP2Model:
         temperature=0.0,
         do_sample=False,
     ):
-        # BLIP-2 behaves better when the prompt explicitly ends with Answer:
-        clean_prompt = prompt.strip()
-
-        if "Answer:" not in clean_prompt:
-            clean_prompt = clean_prompt + "\nAnswer:"
+        prompt = self._prepare_prompt(prompt)
 
         inputs = self.processor(
             images=image,
-            text=clean_prompt,
+            text=prompt,
             return_tensors="pt",
         )
 
         inputs = {
-            key: value.to(self.device)
+            key: value.to(self.actual_device)
             for key, value in inputs.items()
         }
 
@@ -65,31 +91,31 @@ class BLIP2Model:
             min_new_tokens=1,
             do_sample=do_sample,
             temperature=temperature if do_sample else None,
+            num_beams=1,
             pad_token_id=self.processor.tokenizer.eos_token_id,
+            eos_token_id=self.processor.tokenizer.eos_token_id,
         )
 
-
-        decoded = self.processor.tokenizer.batch_decode(
+        # Decode full output first.
+        full_text = self.processor.tokenizer.batch_decode(
             generated_ids,
             skip_special_tokens=True,
-        )[0].strip()
+        )[0]
 
-        output_text = decoded.strip()
+        cleaned = self._clean_output(full_text, prompt)
 
-        # Remove exact prompt echo if present.
-        if output_text.startswith(clean_prompt):
-            output_text = output_text[len(clean_prompt):].strip()
+        # Fallback: if full decode cleans to empty, try slicing new tokens.
+        if cleaned == "" and "input_ids" in inputs:
+            input_len = inputs["input_ids"].shape[1]
 
-        # Remove old prompt form too, just in case.
-        old_prompt = prompt.strip()
-        if output_text.startswith(old_prompt):
-            output_text = output_text[len(old_prompt):].strip()
+            if generated_ids.shape[1] > input_len:
+                answer_ids = generated_ids[:, input_len:]
 
-        # If model includes "Answer:", keep only what follows it.
-        if "Answer:" in output_text:
-            output_text = output_text.split("Answer:")[-1].strip()
+                answer_text = self.processor.tokenizer.batch_decode(
+                    answer_ids,
+                    skip_special_tokens=True,
+                )[0]
 
-        # Keep only first line for TextVQA.
-        output_text = output_text.split("\n")[0].strip()
+                cleaned = self._clean_output(answer_text, prompt)
 
-        return output_text
+        return cleaned
