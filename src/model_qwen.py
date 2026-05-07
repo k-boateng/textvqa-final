@@ -1,3 +1,4 @@
+import os
 import torch
 from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
@@ -7,6 +8,10 @@ class Qwen25VLModel:
     """
     Thin wrapper around Qwen2.5-VL for TextVQA inference.
     Supports optional LoRA adapter loading.
+
+    Set OFFLOAD_FOLDER env var to control offloading:
+      - unset or non-empty path: offload to that folder (default: outputs/offload)
+      - empty string ("")      : disable offloading (use on machines with enough VRAM)
     """
 
     def __init__(self, model_name, device="cuda", adapter_path=None):
@@ -24,29 +29,42 @@ class Qwen25VLModel:
         dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
         print("Using dtype:", dtype)
 
+        # Resolve offload folder via env var. Empty string => disable offloading.
+        offload_env = os.environ.get("OFFLOAD_FOLDER", "outputs/offload")
+        use_offload = offload_env != ""
+        print(f"Offload enabled: {use_offload} (folder='{offload_env}')")
+
+        load_kwargs = {
+            "torch_dtype": dtype,
+            "device_map": "auto",
+        }
+        if use_offload:
+            load_kwargs["offload_folder"] = offload_env
+            load_kwargs["offload_state_dict"] = True
+
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_name,
-            torch_dtype=dtype,
-            device_map="auto",
-            offload_folder="outputs/offload",
-            offload_state_dict=True,
+            **load_kwargs,
         )
 
         if adapter_path is not None:
             from peft import PeftModel
-
             print(f"Loading LoRA adapter from: {adapter_path}")
+
+            peft_kwargs = {}
+            if use_offload:
+                peft_kwargs["offload_dir"] = offload_env
+
             self.model = PeftModel.from_pretrained(
                 self.model,
                 adapter_path,
-                offload_dir="outputs/offload",
+                **peft_kwargs,
             )
 
         self.processor = AutoProcessor.from_pretrained(model_name)
 
         if hasattr(self.model, "hf_device_map"):
             print("Model device map:", self.model.hf_device_map)
-
         print("First parameter device:", next(self.model.parameters()).device)
 
         self.model.eval()
@@ -64,14 +82,8 @@ class Qwen25VLModel:
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "image",
-                        "image": image,
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt,
-                    },
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": prompt},
                 ],
             }
         ]
@@ -91,7 +103,6 @@ class Qwen25VLModel:
             padding=True,
             return_tensors="pt",
         )
-
         inputs = inputs.to(self.model.device)
 
         generated_ids = self.model.generate(

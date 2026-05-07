@@ -30,11 +30,7 @@ def parse_args():
         default=5000,
     )
 
-    parser.add_argument(
-        "--save_every",
-        type=int,
-        default=1,
-    )
+    parser.add_argument("--save_every", type=int, default=25)
 
     return parser.parse_args()
 
