@@ -52,21 +52,20 @@ class LLaVAModel:
 
     def _build_chat_prompt(self, question_prompt):
         """
-        LLaVA-Phi-3 uses a chat template with <|user|>, <|assistant|>, and <image> tokens.
-        We let the processor's apply_chat_template handle it correctly across versions.
+        LLaVA-Phi-3-mini uses Phi-3's chat format with explicit special tokens.
+        The processor doesn't ship a chat_template attribute, so we build it manually.
+
+        Format:
+            <|user|>
+            <image>
+            {question}<|end|>
+            <|assistant|>
         """
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": question_prompt},
-                ],
-            }
-        ]
-        return self.processor.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
+        return (
+            f"<|user|>\n"
+            f"<image>\n"
+            f"{question_prompt}<|end|>\n"
+            f"<|assistant|>\n"
         )
 
     @torch.no_grad()
@@ -110,6 +109,9 @@ class LLaVAModel:
 
         # Light cleanup
         output_text = output_text.strip()
+        # Strip leftover end tokens that sometimes survive special-token stripping
+        for tok in ["<|end|>", "<|endoftext|>", "<|assistant|>"]:
+            output_text = output_text.replace(tok, "").strip()
         # Take first line only
         output_text = output_text.split("\n")[0].strip()
         # Strip trailing punctuation/quotes
